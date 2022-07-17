@@ -1,14 +1,38 @@
 version: "3.4"
 
-# Production environment override
+# Production environment
+# 
+# docker-compose -f docker-compose.yml -f docker-compose.prod.yml XXXXX
+#
 services:
   php:
+    build:
+      context: .
+      target: symfony_php    
+    restart: unless-stopped
+    volumes:
+      - php_socket:/var/run/php
+      - ./:/srv/app:rw
+      - ./docker/php/conf.d/symfony.prod.ini:/usr/local/etc/php/conf.d/symfony.ini
+
     environment:
       APP_ENV: prod
       APP_SECRET: ${APP_SECRET}
-      MERCURE_JWT_SECRET: ${CADDY_MERCURE_JWT_SECRET}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-symfony}:${POSTGRES_PASSWORD:-ChangeMe}@database/${POSTGRES_DB:-app}?serverVersion=${POSTGRES_VERSION:-13}&charset=utf8
+      MERCURE_URL: ${CADDY_MERCURE_URL:-http://caddy/.well-known/mercure}
+      MERCURE_PUBLIC_URL: https://${SERVER_NAME:-localhost}/.well-known/mercure
+      MERCURE_JWT_SECRET: ${CADDY_MERCURE_JWT_SECRET:-!ChangeMe!}
 
   caddy:
+    restart: unless-stopped
     environment:
-      MERCURE_PUBLISHER_JWT_KEY: ${CADDY_MERCURE_JWT_SECRET}
-      MERCURE_SUBSCRIBER_JWT_KEY: ${CADDY_MERCURE_JWT_SECRET}
+      SERVER_NAME: ${SERVER_NAME:-localhost, caddy:80}
+      MERCURE_PUBLISHER_JWT_KEY: ${CADDY_MERCURE_JWT_SECRET:-!ChangeMe!}
+      MERCURE_SUBSCRIBER_JWT_KEY: ${CADDY_MERCURE_JWT_SECRET:-!ChangeMe!}
+
+  database:
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-app}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ChangeMe}
+      POSTGRES_USER: ${POSTGRES_USER:-symfony} 
