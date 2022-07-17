@@ -1,22 +1,43 @@
 version: "3.4"
 
-# Development environment override
+# Dev environment override
 services:
   php:
     volumes:
+      - php_socket:/var/run/php
       # The "cached" option has no effect on Linux but improves performance on Mac
       - ./:/srv/app:rw,cached
       - ./docker/php/conf.d/symfony.dev.ini:/usr/local/etc/php/conf.d/symfony.ini
+      - ./docker/php/conf.d/xdebug.ini:/usr/local/etc/php/conf.d/xdebug.ini
       # If you develop on Mac you can remove the var/ directory from the bind-mount
       # for better performance by enabling the next line 
-      # - /srv/app/var
+      - /srv/app/var
     environment:
       APP_ENV: dev
+      APP_SECRET: ${APP_SECRET}
+      PHP_IDE_CONFIG: serverName=symfony
+      # Run "composer require symfony/orm-pack" to install and configure Doctrine ORM
+      DATABASE_URL: postgresql://${POSTGRES_USER:-symfony}:${POSTGRES_PASSWORD:-ChangeMe}@database/${POSTGRES_DB:-app}?serverVersion=${POSTGRES_VERSION:-13}&charset=utf8
+      # Run "composer require symfony/mercure-bundle" to install and configure the Mercure integration
+      MERCURE_URL: ${MERCURE_URL:-http://mercure/.well-known/mercure}
+      MERCURE_PUBLIC_URL: ${MERCURE_PUBLIC_URL:-https://localhost/.well-known/mercure}
+      MERCURE_JWT_SECRET: ${CADDY_MERCURE_JWT_SECRET:-!ChangeMe!}
 
   caddy:
+    environment:
+      SERVER_NAME: ${SERVER_NAME:-localhost, caddy:80}
+      MERCURE_PUBLISHER_JWT_KEY: ${MERCURE_PUBLISHER_JWT_KEY:-!ChangeMe!}
+      MERCURE_SUBSCRIBER_JWT_KEY: ${MERCURE_SUBSCRIBER_JWT_KEY:-!ChangeMe!}    
     volumes:
       - ./docker/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - ./public:/srv/app/public:ro
+      - php_socket:/var/run/php
+      - caddy_data:/data
+      - caddy_config:/config
 
-###> symfony/mercure-bundle ###
-###< symfony/mercure-bundle ###
+  database:
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-app}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ChangeMe}
+      POSTGRES_USER: ${POSTGRES_USER:-symfony}
+
